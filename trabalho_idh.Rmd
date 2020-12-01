@@ -1,0 +1,546 @@
+---
+title: "Trabalho tópicos especiais em economia - IDH dos países e seus fatores explicadores"
+author: 
+ - "Vinícius Jaegger Pimentel"
+ - "Roberson Coelho de Abrantes"
+output:
+  html_document:
+    df_print: paged
+  prettydoc::html_pretty:
+    theme: leonids
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Abstract
+
+O objetivo deste trabalho é de verificar a relação de alguns dados sobre governos e países e seus efeitso no IDH do país, por meio de uma melhora da economia e do produto interno bruto (PIB) ou por meio de melhora de outros indicadores que afetam o IDH. Os indicadores usados são: gastos do governo com educação em porcentagem do PIB, resultado da conta corrente, gastos com saúde em porcentagem do PIB, taxa de inflação, taxa de câmbio, índice de uso de internet, índice de acesso a eletricidade, população rural e taxa de emissões. Para isso, utilizam-se métodos de machine learning, que usam dados relacionados à previsão para classificação e regressão da variável buscada. Para validar os resultados foi feito um gráfico Bw plot que compara as diferentes técnicas usadas e dá uma visão sobre a mais eficaz. Como resultado obteve-se uma boa acurácia dos dados, o que indica que os dados são significativos na correlação com o IDH.
+
+Carregamento de bibliotecas:
+
+```{r message=FALSE}
+rm(list = ls()) #boa prática - para limpar variáveis já existentes antes de iniciar o script
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(data.table)
+library(recipes)
+library(rattle.data)
+library(ggExtra)
+library(rmarkdown)
+library(hexbin)
+library(GGally)
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("wbstats")
+library(wbstats)
+```
+
+## Introdução
+
+Vivemos em um mundo onde as diferenças prevalecem mais do que as similaridades. São fartos os exemplos de países ricos e países pobres. As diferenças existem até mesmo quando falamos de um único país. Brasil, Estados Unidos e China são conhecidos por suas dimensões continentais e por apresentarem diferentes graus de desenvolvimento econômico-social em seus próprios territórios, com suas populações vivendo muitas vezes ao lado de bairros ricos e bairros pobres.
+
+Sobre a questão das desigualdades regionais e a qualidade vida em países de grandes dimensões territoriais, Paulani e Braga (2007) listaram que uma distribuição de renda muito desigual entre regiões pode gerar problemas sociais como grandes fluxos migratórios e o inchaço nas grandes cidades, levando ao sobre carregamento em determinadas regiões da infraestrutura de serviços industriais de utilidade pública, tais como energia, saneamento e educação, além do aumento da criminalidade e da violência urbana, acompanhado do crescimento da discriminação social. Somado a isso, essas desigualdades tendem ao aumento das transferências compulsórias de renda entre as regiões ricas e pobres gerando conflitos políticos.
+
+Durante muito tempo a teoria econômica teve como foco o crescimento econômico das nações. Jones e Vollarth (2015) fizeram um apanhado de razões que levaram o porquê determinados países eram mais ricos do que outros ou por que determinadas nações apresentavam taxas de crescimento elevadas durante várias décadas, sendo que outras mal conseguiam apresentar uma taxa de crescimento do produto que fosse maior que a taxa de crescimento de sua população.
+
+Essas questões levaram a diferenciação entre crescimento e desenvolvimento. Paulani e Braga (2007) argumentaram que o crescimento econômico diz respeito à elevação do produto agregado do país e pode ser avaliado a partir das contas nacionais, enquanto que o tema desenvolvimento leva em consideração à elevação da qualidade de vida da sociedade e a redução das diferenças econômicas e sociais entre seus membros.
+
+O foco no crescimento no Produto Interno Bruto – PIB como medida de qualidade de vida da população de um país mostra-se inadequado porque não são considerados outros fatores que interferem nesse atributo, tais como o tamanho da população, a concentração de renda, a expectativa de vida da população e a qualidade de sua educação, o acesso às melhores condições de saneamento básico, alimentação, a qualidade do ar e da água, ou seja, um meio ambiente saudável para a população atual e as futuras gerações. Esses pontos levaram Robert F. Kennedy, irmão do presidente dos Estados Unidos, John F. Kennedy, a declarar em sua famosa fase que “o PIB de um país mede tudo, exceto aquilo que faz a vida valer a pena”.
+
+A evolução do PIB e do PIB per capita, tendo como premissa a questão do crescimento econômico, é um problema solucionado por meio das contas nacionais, no entanto, a mensuração da qualidade de vida, tendo como premissa as questões de desenvolvimento econômico sustentado, torna o problema um pouco mais profundo. 
+
+Os indicadores que mensuram a distribuição de renda da população de um país e as condições de vida da população no que diz respeito à educação e a saúde vieram para contribuir nesta importante missão, no sentido de tornar mais clara as diferenças de desenvolvimento material e humano das sociedades espalhadas no globo.
+
+Dentre estes indicadores, o Índice de Gini, desenvolvido pelo matemático italiano Conrado Gini, possui a missão de apurar o grau de concentração de renda num determinado país, numa escala que varia de zero, numa condição de plena igualdade, até um, relevando um país totalmente desigual.
+
+No que se refere aos indicadores que tratam das condições de vida da população, o que mais se popularizou foi o Índice de Desenvolvimento Humano – IDH que é utilizado para auferir o grau de desenvolvimento de uma determinada sociedade levando em consideração os quesitos de educação, saúde e renda.
+
+Entender os fatores que contribuem para melhorar as condições de vida da população é um assunto de extrema importância para o direcionamento das políticas públicas, pois decisões tomadas com base em concepções errôneas podem se revelar desastrosas para as futuras gerações.
+
+Sendo o IDH um índice que agrega, em sua metodologia de cálculo, variáveis como um indicador de renda ajustada pela paridade do poder de compra, um indicador das condições de saúde medida por meio do índice de esperança de vida e um indicador das condições de educação ponderada pelos indicadores da taxa de alfabetização de adultos e pela taxa de escolaridade bruta nos ensinos primário, secundário e superior, este trabalho ganha importância pela capacidade de testar outras variáveis sócios-econômicas com poder preditivo para apurar o IDH de um determinado país.
+
+O trabalho visa contribuir com o entendimento sobre os fatores que afetam o nível de IDH dos países, por exemplo: quais fatores são positivos para melhorar o IDH e a qualidade de vida das pessoas. Ao se comparar como os países gastam e em que áreas a aplicação desses recursos têm sido mais eficazes no combate às desigualdades sociais e regionais, é possível chegar a uma conclusão de como esses fatores tem efeito no IDH. As políticas públicas podem ser mudadas ou terem sua direção influenciada pelos fatos apresentados, o que pode levar a um melhor uso dos recursos públicos, contribuindo dessa forma na melhoria de vida nos países.
+
+
+## Revisão da literatura
+
+O objetivo deste trabalho é de verificar a relação de alguns dados sobre governos e países e seu efeito no IDH do país, por meio de uma melhora da economia e do produto interno bruto (PIB) ou por meio de melhora de outros indicadores que afetam o IDH. Nesta seção será feita uma coletânea da literatura existente que relaciona estes indicadores com o IDH ou com o PIB que é um fator chave para a determinação do IDH.
+
+Segundo Paulani e Braga (2007), o Índice de Desenvolvimento Humano – IDH foi desenvolvido pela Organização das Nações Unidas e publicado nos Relatórios do Desenvolvimento Humano do Programa das Nações Unidas para o Desenvolvimento – PNUD. Vários economistas estiveram envolvidos na definição e metodologia de cálculo do IDH com destaque para o ganhador do Prêmio Nobel de Economia de 1998, o indiano Amartya Sen, que dedicou sua vida de pesquisador ao estudo da pobreza e de suas causas e possíveis formas de erradicação.
+
+Segundo Feijó et al (2017), o IDH deve ser visto como uma medida que complementa o PIB como indicador de desenvolvimento, permitindo que se acompanhe a evolução do progresso social dos países e regiões ao longo do tempo. Ainda segundo este autor, o IDH considera que, em todos os estágios de desenvolvimento econômico, necessidades como uma longa e saudável existência, a aquisição de conhecimento e acesso a recursos necessários para um padrão de vida decente são essenciais para o desenvolvimento humano, sem as quais muitas das escolhas na vida dos indivíduos não chegariam nem a ser feitas.
+
+As dimensões do desenvolvimento humano, citado por Feijó (2017), estão refletidas em três componentes do IDH, sendo o indicador de longevidade, educação e renda per capita, no entanto, deve-se destacar que esses indicadores não esgotam todas as necessidades de desenvolvimento humano.
+
+O Relatório de Desenvolvimento Humano – RDH de 2010, elaborado pela ONU, utilizou como metodologia de cálculo do IDH três dimensões, sendo: saúde, educação e padrão de vida. A dimensão do desenvolvimento medido por meio da saúde é apurada por meio do indicador de expectativa de vida, enquanto que a dimensão da educação é apurada por meio dos indicadores de Média de anos de educação e Anos de escolaridade esperados e, por fim, a dimensão Padrão de vida é medida por meio do indicador Rendimento Nacional Bruto per capita.
+
+Importante destacar que, o IDH desde a sua criação recebeu críticas em relação a sua elaboração e composição conforme citado no próprio RDH de 2010, pois outros teóricos sugeriram que o IDH deveria ser ampliado para incluir mais dimensões, desde a igualdade de gênero à biodiversidade, no entanto, mesmo reconhecendo como válidas estas preocupações, o objetivo não é criar um indicador inatacável do bem-estar, e sim, de redirecionar as atenções no sentido do desenvolvimento antropocêntrico e promover o debate sobre como fazer progredir as sociedades (RDH 2010).
+
+Sobre a importância dos indicadores sociais sintéticos, em especial o IDH, Guimarães e Jannuzzi (2005) realizaram uma análise crítica dessa medida e promoveram uma discussão sobre a pobreza e a exclusão social para a agenda política nacional, apontando os problemas de natureza conceitual e metodológicas das propostas e o uso mal informado de indicadores sintéticos como o IDH para critérios de elegibilidade de municípios para políticas sociais.
+
+Com o objetivo de testar outras variáveis que têm relação com o IDH, Filho et al (2012) elaboraram um trabalho utilizando dados das Demonstrações Contábeis dos Municípios, no qual analisaram a relação entre a alocação de recursos públicos por função de governo e o IDH-M dos municípios baianos. Os resultados da regressão mostram que, das 14 variáveis que foram testadas, as funções Planejamento, Indústria e Comércio, Habitação e Urbanismo, Educação e Cultura e Judiciária permaneceram no modelo de regressão final. Foram testados os pressupostos de validação do modelo gerado, no tocante a normalidade dos resíduos, multicolinearidade, auto correlação residual, detecção de outliers e homocedásticidade. Ao final do trabalho, foi proposto a aplicação do estudo para avaliar a relação entre cada índice componente do IDH-M e um aprimoramento nas análises de validação do modelo.
+
+Mariano (2012) em seu trabalho busca mensurar a eficiência social dos países, visto que PIB e riqueza criada não é igual à eficiência e bem-estar da população. Para isso o autor usa procedimentos estatísticos e a sua conclusão é de que os fatores que têm impacto positivo no bem-estar são: taxa básica de juros, taxa bruta de investimentos, taxa de estradas pavimentadas, taxa de alfabetização, número de médicos per capita, liberdade fiscal, além de quase todos os outputs sociais usados na análise, com exceção da inflação. Já os fatores que se relacionam negativamente são: saldo da balança corrente, quantidade de reservas de petróleo, PIB per capita, nível de caridade, ausência de corrupção, liberdade de investimento e financeira, liberdade política e de expressão, taxa de fecundidade na adolescência, taxa de infectados com HIV, nível de emissões de CO2. O autor ressalta que muitos desses resultados contrariam o senso comum, mas que o trabalho lança uma luz sobre este campo de pesquisa.
+
+Reis (2019) aborda o efeito dos gastos públicos sobre o crescimento econômico, usa-se uma amostra composta por 20 países pertencentes à CEPAL e 33 países pertencentes à OCDE entre os anos de 2002 a 2014. O autor leva em consideração também a desigualdade de renda testando para cenários com alta e baixa desigualdade e a conclusão é de que em ambos os cenários o efeito dos gastos públicos sobre o crescimento é negativo.
+
+Poker Jr (2013) avalia a relação entre os gastos em educação e o índice de desenvolvimento humano da educação (IDHE) no período de 2000 a 2010. Com o objetivo de verificar se a variável de gastos em educação dos municípios melhora o índice ou se somente um maior gasto de recursos sem uma melhoria na gestão não é suficiente para melhorar o IDHE. A conclusão chegada no trabalho é de que um aumento nos gastos melhora o IDHE que é um subcomponente do IDH.
+
+## Dados
+
+Os dados do trabalho foram coletados em duas fontes, os dados relativos ao IDH foram coletados no site do programa das nações unidas de desenvolvimento, já todos os outros dados foram coletados no site do banco mundial (World Bank), entre os dados coletados no banco mundial estão o balanço da conta corrente (código: BN.CAB.XOKA.GD.ZS), inflação (FP.CPI.TOTL.ZG), taxa de câmbio (PA.NUS.FCRF), gastos em educação (SH.XPD.GHED.GD.ZS), gastos em saúde (SE.XPD.TOTL.GB.ZS), índice de uso de internet (IT.NET.BBND.P2"), índice de acesso a eletricidade (EG.ELC.ACCS.ZS), população rural (SP.RUR.TOTL.ZS) e taxa de emissões (EN.ATM.CO2E.PC). Todos os dados são anuais do período de 1990 a 2020. Os dados são de bases diferentes e foram incluídos em uma base de dados comum com o mecanismo inner_join. As informações de IDH foram obtidas em número e convertidos em categorias para facilitar a visualização e a compreensão. As categorias de idh são classificadas de acordo com os critérios do programa das nações unidas para o desenvolvimento que são: de 0.8 a 1 - muito alto; de 0.7 a 0.799 - alto; de 0.555 a 0.699 - medio; de 0.35 a 0.554 - baixo.
+
+Busca os dados do site do world bank:
+
+```{r pressure, message=FALSE}
+#idh <- wb_data(indicator = "HD.HCI.OVRL") # funcao que busca o IDH
+#idh <- subset(idh, select = c(country, HD.HCI.OVRL, date)) # Retira as colunas nao usadas
+#names(idh)[2] <- "IDH_numero" # renomeia a coluna do valor
+#idh <- idh %>% filter_all(all_vars(!is.na(.)))
+
+idh2 <- fread("./data/projeto-idh/Human Development Index (HDI)-edit.csv")
+idh2$`HDI Rank (2018)` <- NULL
+idhEdit <-  pivot_longer(idh2, "1990":"2018")
+idh <- idhEdit %>% filter_all(any_vars(value != ".."))
+names(idh)[3] <- "IDH_numero" # renomeia a coluna do valor
+names(idh)[2] <- "date"
+names(idh)[1] <- "country"
+
+idh_medio = idh %>% 
+  mutate(IDH_numero = as.numeric(IDH_numero)) %>% 
+  group_by(country) %>%
+  arrange(date) %>% 
+  summarise(idh_medio = mean(IDH_numero, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(idh_medio = case_when(idh_medio > 0.8 ~ "4 - muito_alto",
+                         idh_medio > 0.7 ~ "3 - alto",
+                         idh_medio >= 0.555 ~ "2 - medio",
+                         idh_medio < 0.555 ~ "1 - baixo")) %>% 
+  filter(!is.na(idh_medio))
+
+
+# Recaracteriza o IDH de numero em classificacoes por nome
+idh_new <- idh %>%
+  mutate(IDH_numero = as.numeric(IDH_numero)) %>% 
+  group_by(country) %>% 
+  mutate(lead_idh_numero = dplyr::lead(IDH_numero, 1)) %>% 
+  ungroup() %>% 
+  mutate(IDH = case_when(lead_idh_numero > 0.8 ~ "4 - muito_alto",
+                         lead_idh_numero > 0.7 ~ "3 - alto",
+                         lead_idh_numero >= 0.555 ~ "2 - medio",
+                         lead_idh_numero < 0.555 ~ "1 - baixo")) %>% 
+  filter(!is.na(IDH))
+idh_new <- subset(idh_new, select = c(country, IDH, date)) # Retira as colunas nao usadas
+
+str(idh_new)
+
+current_account <- wb_data(indicator = "BN.CAB.XOKA.GD.ZS")
+current_account <- subset(current_account, select = c(country, BN.CAB.XOKA.GD.ZS, date))
+names(current_account)[2] <- "current_account"
+current_account <- current_account %>% filter_all(all_vars(!is.na(.)))
+
+inflacao <- wb_data(indicator = "FP.CPI.TOTL.ZG")
+inflacao <- subset(inflacao, select = c(country, FP.CPI.TOTL.ZG, date))
+names(inflacao)[2] <- "inflacao"
+inflacao <- inflacao %>% filter_all(all_vars(!is.na(.)))
+
+cambio <- wb_data(indicator = "PA.NUS.FCRF")
+cambio <- subset(cambio, select = c(country, PA.NUS.FCRF, date))
+names(cambio)[2] <- "cambio"
+cambio <- cambio %>% filter_all(all_vars(!is.na(.)))
+
+internet <- wb_data(indicator = "IT.NET.BBND.P2")
+internet <- subset(internet, select = c(country, IT.NET.BBND.P2, date))
+names(internet)[2] <- "internet"
+internet <- internet %>% filter_all(all_vars(!is.na(.)))
+
+popRural <- wb_data(indicator = "SP.RUR.TOTL.ZS")
+popRural <- subset(popRural, select = c(country, SP.RUR.TOTL.ZS, date))
+names(popRural)[2] <- "popRural"
+popRural <- popRural %>% filter_all(all_vars(!is.na(.)))
+
+eletricidade <- wb_data(indicator = "EG.ELC.ACCS.ZS")
+eletricidade <- subset(eletricidade, select = c(country, EG.ELC.ACCS.ZS, date))
+names(eletricidade)[2] <- "eletricidade"
+eletricidade <- eletricidade %>% filter_all(all_vars(!is.na(.)))
+
+emissoes <- wb_data(indicator = "EN.ATM.CO2E.PC")
+emissoes <- subset(emissoes, select = c(country, EN.ATM.CO2E.PC, date))
+names(emissoes)[2] <- "emissoes"
+emissoes <- emissoes %>% filter_all(all_vars(!is.na(.)))
+
+saude <- wb_data(indicator = "SH.XPD.GHED.GD.ZS")
+saude <- subset(saude, select = c(country, SH.XPD.GHED.GD.ZS, date))
+names(saude)[2] <- "saude"
+saude <- saude %>% filter_all(all_vars(!is.na(.)))
+
+educacao <- wb_data(indicator = "SE.XPD.TOTL.GB.ZS")
+educacao <- subset(educacao, select = c(country, SE.XPD.TOTL.GB.ZS, date))
+names(educacao)[2] <- "educacao"
+educacao <- educacao %>% filter_all(all_vars(!is.na(.)))
+```
+
+Como os dados foram coletados em duas fontes, site do programa das nações unidas de desenvolvimento e no site do banco mundial (World Bank), fez-se necessário utilizar o recurso do “left_join” para as variáveis numéricas current_account, inflação, câmbio, internet, poprural, eletricidade, saúde e educação.
+A tabela gerada com o recurso “left_join” foi formada com um total de 1147 observações e 11 variáveis, distribuída em um total de 123 países e 30 anos.
+Arruma os dados em uma mesma tabela:
+
+```{r, message= FALSE}
+
+idh_new$date <- as.numeric(as.character(idh_new$date))
+
+dados <- idh_new %>%
+  left_join(current_account, by = c("country", "date")) %>%
+  left_join(inflacao, by = c("country", "date")) %>%
+  left_join(cambio, by = c("country", "date")) %>%
+  left_join(internet, by = c("country", "date")) %>%
+  left_join(popRural, by = c("country", "date")) %>%
+  left_join(eletricidade, by = c("country", "date")) %>%
+  left_join(saude, by = c("country", "date")) %>%
+  left_join(educacao, by = c("country", "date"))
+
+dados <- 
+  dados %>%
+  mutate_if(is.character, as.factor)
+
+head(dados)
+
+```
+
+```{r, message= FALSE}
+str(dados)
+```
+
+```{r, message= FALSE}
+library(stargazer)
+stargazer(as.data.table(dados), type = "text", style = "default")
+```
+
+```{r, message= FALSE}
+
+dados[1] <- NULL
+
+```
+
+
+
+```{r, message= FALSE}
+plot_box = function(data, atributos, variavelDependente = 'IDH') {
+
+  for(atributo in atributos){
+    p = ggplot(data = data, aes_string(variavelDependente, atributo)) +
+      geom_boxplot() +
+      labs(
+        x = variavelDependente,
+        y = atributo,
+        caption = "Fonte: World Bank") +
+      theme_bw()
+
+    print(p)
+  }
+}
+
+plot_histogram_kernel = function(data, atributos) {
+  
+  for(atributo in atributos){
+    p = ggplot(data = data, aes_string(atributo)) + 
+           geom_histogram(aes(y = ..density..), bins = 30, alpha = 0.5) + 
+           geom_density(alpha = 0.8, color = "blue", size = 1.5) +
+           labs(x = atributo,
+                y = "Probabilidade",
+                caption = "Fonte: World Bank") + 
+                theme_bw() +
+                geom_rug() 
+                #theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    
+    print(p)
+  }
+}
+
+plot_violin = function(data, atributos, variavelDependente = 'IDH') {
+  
+  for(atributo in atributos){
+    p = ggplot(data = data, aes_string(variavelDependente, atributo)) + 
+           geom_violin() +
+           labs(
+           x = variavelDependente,
+           y = atributo,
+           caption = "Fonte: World Bank") + 
+           theme_bw()
+    
+    print(p)
+  }
+}
+
+
+```
+
+# Países por IDH
+
+Como os dados da tabela “dados” gerados com o recurso “left_join” contém informações de vários anos para diferentes países e espera-se que os países com melhores IDH’s sejam mais transparentes, a obtenção de um gráfico de frequência dos países classificados com índice baixo, médio, alto e muito alto poderia gerar distorções com a apresentação de um maior número de países com alto e muito alto índice IDH. 
+Para evitar essa distorção, foi apurado o IDH médio dos países no período de 1990-2020 afim de que o gráfico em barras contenha apenas uma ocorrência por país no período. Com isso, é possível observar que a base de dados utilizada é composta por países na faixa de baixo e médio IDH.
+
+````{r}
+p1 = ggplot(data = idh_medio, aes(idh_medio)) +
+  geom_bar() + 
+  labs(x = "IDH dos países",
+       y = "# Ocorrências",
+       caption = "Fonte: World Bank)") + 
+       theme_bw()
+print(p1)
+````
+
+# Histograma
+
+Os histogramas das variáveis demonstram uma distribuição diversa das mesmas, sem apresentar normalidade em sua maioria. Esse comportamento é corrigido nos métodos subsequentes.
+
+````{r}
+
+numericalColumnNames <- subset(dados, select = c(educacao, saude, cambio))
+plot_histogram_kernel(dados, numericalColumnNames)
+
+````
+
+# Box plot em relação ao IDH
+
+A categoria de problema deste trabalho é dito como classificação pois este tem como objetivo verificar a relação de alguns dados sobre governos e países e seus efeitos no IDH do país, por meio de uma melhora da economia e do produto interno bruto (PIB) ou por meio de melhora de outros indicadores que afetam o IDH.
+Para verificar a distribuição dos dados numéricos em relação ao IDH dos países, foram elaborados os gráficos no estilo Box Plot abaixo para estas variáveis.
+O primeiro Box plot analisado é o da educação. Neste gráfico é possível observar que, apesar da sobreposição dos dados, o valor gasto com educação em porcentagem do PIB parece diminuir em países com maior IDH. Este efeito não é o esperado, pois espera-se que países com maior gasto em educação tenham maior IDH, porém, pode-se explicar este efeito devido ao fato de que os países com maior IDH também têm maior PIB e, assim, uma menor porcentagem de gastos deste PIB pode na verdade significar um maior gasto destes países em relação a países com menor IDH. Outro fator que também pode explicar pode ser o de que países com maior IDH podem ter uma eficiência maior nos gastos com educação e assim demandar menos recursos em relação ao PIB. Box plot da educação:
+
+
+````{r}
+
+plot_box(dados, c('educacao'))
+      
+````
+
+Já na saúde, há uma situação que é a esperada, países com maior IDH têm mais gatos com saúde. Isso pode ser explicado porque países com melhores índices de IDH possuem melhores expectativas de vida de sua população o que acaba fazendo com que os gastos com saúde sejam maiores nessas sociedades e os gastos com saúde são maiores. Box plot da saúde:
+````{r}
+
+plot_box(dados, c('saude'))
+      
+````
+
+Na variável conta corrente do governo, que demonstra se o governo tem um saldo positivo ou negativo em suas contas em relação ao PIB, podemos obsevar uma maior variabilidade no IDH médio e um comportamento semelhante em todos os níveis IDH, porém com uma média ligeiramente mais alta em países com IDH alto e muito alto o que demonstra que estes países demonstram um maior controle de suas contas. Box Plot conta corrente e conta corrente recortada entre -50% a 50%:
+````{r}
+
+plot_box(dados, c('current_account'))
+
+ggplot(dados, aes(x = IDH, y = current_account)) + geom_boxplot() +
+  labs(x = "IDH", y = "conta corrente", caption = "Fonte: World Bank") +
+  coord_cartesian(ylim = c(-50, 50)) +
+  theme_bw()
+      
+````
+
+Na taxa de inflação, espera-se que países com maiores IDH’s sejam países com instituições mais sólidas, com um Banco Central atuante e com políticas independentes para o combate a inflação. Pelo Plot Box Inflação x IDH é possível observar que países com maiores IDH’S apresentam a mediana da taxa de inflação inferior aos países com IDH baixo e médio e ainda a variabilidade de taxa de inflação no grupo de países com alto IDH é inferior a variabilidade dos outros grupos, corroborando no sentido de que estes países apresentam instituições e políticas de combate a inflação mais sólidas do que aqueles. Box plot inflação total e inflação recortada entre -10% a 40%:
+
+````{r}
+
+plot_box(dados, c('inflacao'))
+
+ggplot(dados, aes(x = IDH, y = inflacao)) + geom_boxplot() +
+  labs(x = "IDH", y = "inflacao", caption = "Fonte: World Bank") +
+  coord_cartesian(ylim = c(-10,40)) +
+  theme_bw()
+      
+````
+
+O Plot Box Câmbio x IDH também apresenta resultado interessantes. Espera-se que países com baixos IDH tenham uma população com piores condições econômicas e que suas economias seja menos competitivas do que países com altos índice de desenvolvimento econômico. Nesse sentido, países com baixos IDH utilizariam políticas de desvalorização da taxa de câmbio como medida para tornar seus produtos mais competitivos no mercado internacional em detrimento da piora da qualidade de vida de sua população devido ao aumento nos preços acarretado pela desvalorização do câmbio. O Plot Box Câmbio x IDH corrobora nesta constatação na medida que é possível observar maior variabilidade das taxas e uma mediana menor de câmbio nos países classificados com baixo IDH em detrimento dos países com alto IDH. Box plot inflação total e inflação recortada entre -10% a 1500%:
+
+````{r}
+
+plot_box(dados, c('cambio'))
+
+ggplot(dados, aes(x = IDH, y = cambio)) + geom_boxplot() +
+  labs(x = "IDH", y = "cambio", caption = "Fonte: World Bank") +
+  coord_cartesian(ylim = c(-10, 1500)) +
+  theme_bw()
+      
+````
+
+Uma população maior acesso a internet tem impacto positivo no aprendizado de crianças e jovens pois possibilita a este o acesso a fonte de informações que são inacessíveis para populações mais carentes, representando dessa forma um indicador importante na classificação dos países quando ao nível de desenvolvimento medido por meio do IDH. Box plot com velocidade de internet:
+
+````{r}
+
+plot_box(dados, c('internet'))
+      
+````
+
+O Plot Box População Rural x IDH trás uma relação inversa entre tamanho da população rural e o nível de desenvolvimento humano. Observa-se que países com maiores IDH’s apresentam uma participação relativa menor da população rural, o que faz total sentido pois os países com maiores IDH’s apresentam maiores nível de atividade econômica, maior acesso a eletricidade e a internet, características de uma sociedade altamente urbanizada. Box plot população rural:
+````{r}
+
+plot_box(dados, c('popRural'))
+      
+````
+
+O mesmo podemos dizer sobre os países no qual a população tem maior cobertura de eletricidade em suas residências, quanto maior o acesso à eletricidade melhor a qualidade de vida e acesso a fontes de informação. Box plot porcentagem de residências com eletricidade:
+
+````{r}
+
+plot_box(dados, c('eletricidade'))
+      
+````
+
+# Metodologia
+
+O presente trabalho dividiu os dados em dois conjuntos: Conjuntos de Treinamento e Conjuntos de dados teste, correspondente a 70% e 30% da base de dados original. O número de  iterações utilizado para os testes de cross validation foi de 10. Os dados foram defasados em uma unidade, o que significa que a predição é feita com os dados do período anterior ao do previsto. O objetivo desta predição pode ser o de auxiliar nas políticas públicas com a informação de se o IDH vai melhorar ou piorar no período seguinte ao medido.
+Os algoritmos de classificação utilizados para predição do IDH dos países foram: 
+1.	Nnn - k-Nearest Neighbors
+2.	Árvore de Decisão
+3.	Redes Neurais
+4.	Random Florest
+5.  SVM - support vector machine
+6.  GLM - modelo linear generalizado
+
+````{r, message = FALSE}
+
+
+particaoTreinamento = createDataPartition(dados$IDH, p = 0.7, list = FALSE)
+
+conjuntoTreinamento = dados[particaoTreinamento,]
+
+conjuntoTeste = dados[-particaoTreinamento,]
+
+pre_processing_recipe =
+  recipe(formula = IDH ~ ., data = conjuntoTreinamento) %>%
+  step_modeimpute(all_nominal()) %>% 
+  step_knnimpute(all_numeric()) %>% 
+  step_normalize(all_numeric(), -IDH) %>% 
+  prep()
+
+
+conjuntoTreinamentoProcessado = juice(pre_processing_recipe)
+conjuntoTesteProcessado = bake(pre_processing_recipe, new_data = conjuntoTeste)
+
+library(stargazer)
+
+stargazer(as.data.table(conjuntoTreinamento), type = "text", title = "Estatisticas do conjunto de treinamento original")
+stargazer(as.data.table(conjuntoTreinamentoProcessado), type = "text", title = "Estatisticas do conjunto de treinamento processado")
+
+stargazer(as.data.table(conjuntoTeste), type = "text", title = "Estatisticas do conjunto de teste original")
+stargazer(as.data.table(conjuntoTesteProcessado), type = "text", title = "Estatisticas do conjunto de teste processado")
+
+trainMethod = trainControl(method = "cv", 
+                             number = 10)
+
+```
+
+O método Knn foi processado com 3638 observações, 9 preditores e 4 classes, sendo: 1 - baixo, 2 – médio, 3 - alto, 4 – muito alto.
+O nível de acurácia máxima foi obtida quando “k” foi igual a 5, correspondendo a 0.7119104.
+
+````{r, message = FALSE, fig.height = 25, fig.width = 25, fig.align = "center"}
+
+knnFit <- train(IDH ~ ., data = conjuntoTreinamentoProcessado,
+                method = "knn",
+                trControl = trainMethod,
+                tuneLength = 10)
+
+knnFit
+
+```
+
+O método árvore de decisão foi processado com 3638  observações, 9 preditores e 4 classes na mesma forma que o método knn. O nível de acurácia de 0.6866444 foi obtida quando cp é igual a 0.005327245.
+
+````{r, message = FALSE}
+model_arvoreDecisao = caret::train(IDH ~ ., 
+                                    data = conjuntoTreinamentoProcessado,
+                                    trControl = trainMethod,
+                                    method       = 'rpart',
+                                    tuneLength   = 10)
+
+model_arvoreDecisao
+
+rattle::fancyRpartPlot(model_arvoreDecisao$finalModel)
+
+```
+
+O método de Redes Neurais obteve um índice de acurácia de  0.6891240.
+
+
+````{r, message = FALSE}
+model_neural_nets = caret::train(IDH ~ .,
+                                 data         = conjuntoTreinamentoProcessado,
+                                 trControl    = trainMethod,
+                                 method       = 'nnet',
+                                 tuneLength   = 2)
+
+model_neural_nets
+
+````
+O método Random Forest teve acurácia de 0.7853209 na sua melhor medição com o parâmetro de 2.
+
+````{r, message = FALSE}
+model_rf = caret::train(IDH ~ .,
+                         data         = conjuntoTreinamentoProcessado,
+                         trControl    = trainMethod,
+                         method       = 'rf',
+                         tuneLength   = 10)
+model_rf
+
+````
+o método svm teve acurácia de 0.7410495  e um sigma de 128.00.
+
+````{r, message = FALSE}
+model_svm = caret::train(IDH ~ .,
+                         data         = conjuntoTreinamentoProcessado,
+                         trControl    = trainMethod,
+                         method       = 'svmRadial',
+                         tuneLength   = 10)
+model_svm
+
+````
+o método de modelo de regressão logistícia teve acurácia de 0.4378899. Este método teve uma menor acurácia devido ao número de observações.
+
+````{r, message = FALSE}
+
+model_regressao_logistica = caret::train(IDH ~ .,
+                         data = conjuntoTreinamentoProcessado,
+                         trControl = trainMethod,
+                         method = 'bayesglm')
+
+model_regressao_logistica
+````
+
+
+# Resultados
+
+O gráfico BwPlot mostra o desempenho dos diferentes testes em níveis de acurácia e valor Kappa de 0 a 1. Os resultados demonstram que o algoritmo random forest teve o melhor resultado seguido por SVM, KNN, decision tree, Neural net e por último glm. O algoritmo GLM bayesiano teve um desempnho baixo, provavelmente, por ter pouca quantidade de dados.
+
+````{r, message = FALSE}
+modelsPerformance = resamples(list("Knn" = knnFit,
+                                    "Decision Tree"  = model_arvoreDecisao,
+                                    "SVM"                = model_svm,
+                                    "Random Forests"     = model_rf,
+                                    "Neural Net" = model_neural_nets,
+                                   "glm" = model_regressao_logistica
+                                   ))
+
+bwplot(modelsPerformance)
+````
+
+Os testes demonstram uma boa acurácia na maioria dos algoritmos, mesmo com dados faltantes é obtida uma grande acurácia, devido à previsão destes dados faltantes pela técnica Knn, esses resultados demonstram que as variáveis escolhidas são úteis na verificação do IDH dos países. Essas variáveis também podem ser objetivo de políticas públicas por governos que buscam aumentar o nível de IDH dos países. A previsão do IDH pode ser útil como informação para os países se seu nível de IDH vai aumentar ou diminuir, orientando políticas que possam melhorar esses indicadores.
+
+## Referência
+
+Paulani, Leda Maria; Braga, Márcio Bobik. A nova contabilidade social: uma introdução à macroeconomia. 3ª Edição. São Paulo: Saraiva, 2007.
+
+Feijó, Carmen. Filho, Nelson Henrique Barbosa. Greenholgh, Fernando Carlos. Palis, Rebeca de laRocque. Ramos, Roberto Luis Olinto. Contabilidade Social: Referência atualizada das contas nacionais do Brasil. 5ª Edição. São Paulo: Elsevier, 2017.
+
+MARIANO, Enzo Barberio. Crescimento econômico e desenvolvimento humano: uma análise mundial da eficiência social de Estados-nação. 2012. Tese de Doutorado. Universidade de São Paulo.
+
+REIS, Anderson GedeonBuzar; BUENO, Newton Paulo. O efeito dos gastos públicos sociais no crescimento econômico: uma análise comparativa entre os países membros da CEPAL e OCDE. Revista Gestão & Tecnologia, v. 19, n. 1, p. 73-89, 2019.
+
+POKER JR, Johan Hendrik; NUNES, R. da C.; NUNES, S. P. P. Uma avaliação de efetividade e eficiência do gasto em educação em municípios brasileiros. Caderno de Finanças Públicas, Brasília, n. 13, p. 263-287, 2013.
+
+GUIMARÃES, José Ribeiro Soares; DE MARTINO JANNUZZI, Paulo. IDH, indicadores sintéticos e suas aplicações em políticas públicas. Uma análise crítica. Revista Brasileira de Estudos Urbanos e Regionais (RBEUR), v. 7, n. 1, p. 73-90, 2005.
+
+DOS SANTOS FILHO, Manuel Roque; DIAS FILHO, José Maria; FERNANDES, Gilênio Borges. Avaliação da capacidade de predição do Índice de Desenvolvimento Humano dos Municípios (IDH-M) a partir das demonstrações contábeis e legais. Revista Ciências Administrativas, v. 18, n. 1, p. 83-109, 2012.
+
+ONU. Relatório de Desenvolvimento Humano, 2010. Disponível em: < https://www.br.undp.org/content/brazil/pt/home/idh0/relatorios-de-desenvolvimento-humano/rdhs-globais.html>
+
+
